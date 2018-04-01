@@ -2,6 +2,10 @@
 import logging
 from collections import deque
 from traceback import format_exc
+import inspect
+from ..compat import IS_PYTHON3
+if IS_PYTHON3:
+    import asyncio
 
 import greenlet
 
@@ -189,7 +193,10 @@ class Session(object):
                 rv = self._request_cb(name, args)
                 debug('greenlet %s finished executing, ' +
                       'sending %s as response', gr, rv)
-                response.send(rv)
+                if IS_PYTHON3 and inspect.isawaitable(rv):
+                    asyncio.ensure_future(rv).add_done_callback(response.send)
+                else:
+                    response.send(rv)
             except ErrorResponse as err:
                 warn("error response from request '%s %s': %s", name,
                      args, format_exc())
